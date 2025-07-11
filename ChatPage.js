@@ -22,6 +22,8 @@ import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import InsertEmoticonIcon from '@mui/icons-material/InsertEmoticon';
 import UserProfile from './UserProfile';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+
 
 
 
@@ -61,6 +63,8 @@ const ChatPage = () => {
   const showChatList = isMobile ? !selectedUser : true;
   const showChatPane = isMobile ? !!selectedUser : true;
   const [userProfile, setUserProfile] = useState(null);
+  const [hasFriendRequest, setHasFriendRequest] = useState(false); // or false based on your logic
+
 
   const filteredMembers = chatMembers.filter((member) =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -152,22 +156,28 @@ const ChatPage = () => {
       <AppBar position="static" sx={{ bgcolor: '#fff', boxShadow: 'none', borderBottom: '1px solid #f1dcdc' }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <AnimatedTitle />
-      <IconButton
-  onClick={() => {
-    const user = JSON.parse(localStorage.getItem("user")); // ✅ get user object
-    if (!user || !user._id) return alert("User not logged in");
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+  <IconButton onClick={() => alert("Check your friend requests!")}>
+    <NotificationsIcon sx={{ color: hasFriendRequest ? '#ff69b4' : '#000' }} />
+  </IconButton>
 
-    setBottomNav(4); // Show profile
+  <IconButton
+    onClick={() => {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user || !user._id) return alert("User not logged in");
 
-    // ✅ Optionally re-fetch from DB (for latest data)
-    fetch(`/api/user/${user._id}`)
-      .then(res => res.json())
-      .then(data => setUserProfile(data))
-      .catch(err => console.error("Error fetching user:", err));
-  }}
->
-  <AccountCircleIcon sx={{ color: '#000' }} />
-</IconButton>
+      setBottomNav(4);
+      fetch(`/api/user/${user._id}`)
+        .then(res => res.json())
+        .then(data => setUserProfile(data))
+        .catch(err => console.error("Error fetching user:", err));
+    }}
+  >
+    <AccountCircleIcon sx={{ color: '#000' }} />
+  </IconButton>
+</Box>
+
+
 
 
 
