@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -26,20 +26,48 @@ const dummyUsers = [
 
 const SearchPage = () => {
   const [search, setSearch] = useState('');
-  const [recentSearches, setRecentSearches] = useState(['Sophia', 'Noah']);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [recentSearches, setRecentSearches] = useState(['Sophia', 'Noah','manish', 'Ethan', 'Olivia']);
+  const [friendRequests, setFriendRequests] = useState({}); // Track request state per user
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const filteredUsers =
-    search.trim() === ''
-      ? dummyUsers.filter(user => recentSearches.includes(user.name))
-      : dummyUsers.filter(user =>
-          user.name.toLowerCase().includes(search.toLowerCase())
-        );
-
+  
   const handleRemoveRecent = (name) => {
     setRecentSearches((prev) => prev.filter((item) => item !== name));
   };
+
+  const handleAddFriend = (userId) => {
+    setFriendRequests((prev) => ({ ...prev, [userId]: true }));
+    // Optionally: send friend request to backend here
+  };
+
+  const handleCancelRequest = (userId) => {
+    setFriendRequests((prev) => {
+      const updated = { ...prev };
+      delete updated[userId];
+      return updated;
+    });
+    // Optionally: cancel friend request in backend here
+  };
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (search.trim() === '') return;
+
+      try {
+       const res = await fetch(`http://localhost:5000/api/users/search?q=${search}`);
+ // changed from /api/users/search
+        const data = await res.json();
+        setFilteredUsers(data);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setFilteredUsers([]);
+      }
+    };
+
+    fetchUsers();
+  }, [search]);
 
   return (
     <Box
@@ -53,8 +81,8 @@ const SearchPage = () => {
     >
       <Box
         sx={{
-          width: isMobile ? '100%' : '50%',
-          maxWidth: 600,
+          width: isMobile ? '100%' : '70%',
+          maxWidth: 1000,
         }}
       >
         <TextField
@@ -113,11 +141,9 @@ const SearchPage = () => {
             {filteredUsers.length > 0 ? (
              <List>
   {filteredUsers.map((user, idx) => (
-    <ListItem
-      key={idx}
-      sx={{ px: 1 }}
-      secondaryAction={
-        <Box>
+    <ListItem key={idx} sx={{ px: 1 }} secondaryAction={
+      <Box>
+        {!friendRequests[user._id] ? (
           <button
             style={{
               backgroundColor: '#f06292',
@@ -129,26 +155,58 @@ const SearchPage = () => {
               cursor: 'pointer',
               fontSize: '0.85rem'
             }}
-            onClick={() => alert(`Friend request sent to ${user.name}`)}
+            onClick={() => handleAddFriend(user._id)}
           >
             Add Friend
           </button>
-        </Box>
-      }
-    >
+        ) : (
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <button
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px solid #f06292',
+                color: '#f06292',
+                fontWeight: 500,
+                borderRadius: '20px',
+                padding: '6px 14px',
+                cursor: 'default',
+                fontSize: '0.85rem'
+              }}
+              disabled
+            >
+              Requested
+            </button>
+            <button
+              style={{
+                backgroundColor: '#f06292',
+                border: 'none',
+                color: 'white',
+                fontWeight: 500,
+                borderRadius: '20px',
+                padding: '6px 14px',
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
+              onClick={() => handleCancelRequest(user._id)}
+            >
+              Cancel
+            </button>
+          </Box>
+        )}
+      </Box>
+    }>
       <ListItemAvatar>
-        <Avatar src={user.image} />
+        <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
       </ListItemAvatar>
-      <ListItemText
-        primary={<Typography fontWeight={600}>{user.name}</Typography>}
-      />
+      <ListItemText primary={<Typography fontWeight={600}>{user.username}</Typography>} />
     </ListItem>
   ))}
 </List>
 
+
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                No users found.
+                No users found for "{search.trim()}".
               </Typography>
             )}
           </>
