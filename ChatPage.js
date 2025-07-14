@@ -153,8 +153,20 @@ const ChatPage = () => {
       bgcolor: '#fdf4f4',
       position: 'relative',
       fontFamily: `'Poppins', sans-serif`,
+      overflow: 'hidden', // Prevent outer scroll
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      <AppBar position="static" sx={{ bgcolor: '#fff', boxShadow: 'none', borderBottom: '1px solid #f1dcdc' }}>
+      {/* Make AppBar sticky/fixed so it does not scroll */}
+      <AppBar
+        position="fixed"
+        sx={{
+          bgcolor: '#fff',
+          boxShadow: 'none',
+          borderBottom: '1px solid #f1dcdc',
+          zIndex: 1201 // Above content
+        }}
+      >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <AnimatedTitle />
           <IconButton
@@ -195,7 +207,15 @@ const ChatPage = () => {
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ height: isMobile ? 'calc(100vh - 64px - 56px)' : 'calc(100vh - 64px)', display: 'flex' }}>
+      {/* Main content area, scrollable below AppBar */}
+      <Box
+        sx={{
+          height: isMobile ? 'calc(100vh - 64px - 56px)' : 'calc(100vh - 64px)',
+          display: 'flex',
+          mt: '64px', // Offset for fixed AppBar
+          overflow: 'auto'
+        }}
+      >
         {/* Desktop vertical navigation */}
         {!isMobile && (
           <Box sx={{
