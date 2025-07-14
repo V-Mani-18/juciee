@@ -109,15 +109,14 @@ const SearchPage = () => {
   return (
     <Box
       sx={{
-        width: '90vw',
-        minHeight: '100vh',
-        bgcolor: 'transparent',
-        overflowX: 'hidden',
-        overflowY: 'auto', // Enable vertical scroll
+        width: '100%',
+        height: '100%',
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        p: 0,
+        overflow: 'hidden', // Prevent outer scroll
+        p: 1,
         m: 0,
       }}
     >
@@ -132,233 +131,67 @@ const SearchPage = () => {
           p: isMobile ? 0 : 3,
           minHeight: isMobile ? 'auto' : 500,
           transition: 'all 0.2s',
-          overflow: 'visible',
-          mt: 1, // margin top for search bar
+          overflow: 'hidden',
+          mt: 0,
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <TextField
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search users"
-          variant="outlined"
-          size="small"
-          fullWidth
-          sx={{ mb: 2, mt: 0 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-            endAdornment: search && (
-              <InputAdornment position="end">
-                <IconButton
-                  aria-label="clear search"
-                  onClick={() => setSearch('')}
-                  edge="end"
-                  size="small"
-                >
-                  <CloseIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-            sx: {
-              borderRadius: 8,
-              bgcolor: '#fcecec',
-            }
+        {/* Make only this Box scrollable */}
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: 'hidden',
+            overflowX: 'hidden',
+            width: '100%',
           }}
-        />
+        >
+          <TextField
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search users"
+            variant="outlined"
+            size="small"
+            fullWidth
+            sx={{ mb: 2, mt: 0 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+              endAdornment: search && (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label="clear search"
+                    onClick={() => setSearch('')}
+                    edge="end"
+                    size="small"
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </InputAdornment>
+              ),
+              sx: {
+                borderRadius: 8,
+                bgcolor: '#fcecec',
+              }
+            }}
+          />
 
-        {search.trim() === '' && recentSearches.length > 0 && (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 1, color: '#888', fontWeight: 500 }}>
-              Recent Searches
-            </Typography>
-            <List sx={{ maxWidth: 400, width: '100%' }}> {/* Limit width so screen doesn't expand */}
-              {recentSearches.map((user, idx) => (
-                <ListItem
-                  key={user._id}
-                  secondaryAction={
-                    <IconButton edge="end" onClick={() => handleRemoveRecent(user._id)}>
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  }
-                >
-                  <ListItemAvatar>
-                    <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={<Typography fontWeight={600}>{user.username}</Typography>}
-                  />
-                </ListItem>
-              ))}
-            </List>
-            {/* Add last login users grid below recent searches */}
-            <Box sx={{ mt: 3 }}>
-              {/* Always show the label */}
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  mb: 1,
-                  color: '#888',
-                  fontWeight: 500,
-                  // Ensure label is always visible
-                  display: 'block'
-                }}
-              >
-                {isMobile ? 'SUGGESTIONS' : 'SUGGESTIONS'}
+          {/* Search Results - show at top */}
+          {search.trim() !== '' && (
+            <Box sx={{ width: '100%', mt: 3 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: '#888', fontWeight: 500 }}>
+                Search Results
               </Typography>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2.5,
-                  overflowX: 'auto',
-                  pb: 1,
-                  maxWidth: '100%',
-                  // Hide scrollbar cross-browser
-                  scrollbarWidth: 'none', // Firefox
-                  '&::-webkit-scrollbar': {
-                    display: 'none', // Chrome, Safari, Opera
-                  },
-                  msOverflowStyle: 'none', // IE and Edge
-                }}
-              >
-                {/* Split users into rows */}
-                {(() => {
-                  const usersPerRow = isMobile ? 6 : 10;
-                  const rows = [];
-                  for (let i = 0; i < lastLoginUsers.length; i += usersPerRow) {
-                    rows.push(lastLoginUsers.slice(i, i + usersPerRow));
-                  }
-                  return rows.map((row, rowIdx) => (
-                    <Box
-                      key={rowIdx}
-                      sx={{
-                        display: 'flex',
-                        gap: 3,
-                        justifyContent: isMobile ? 'flex-start' : 'center',
-                        width: '100%',
-                        overflowX: isMobile ? 'auto' : 'visible',
-                        mb: rowIdx !== rows.length - 1 ? 2.5 : 0 // Add margin-bottom between rows except last
-                      }}
-                    >
-                      {row.map((user) => (
-                        <Box
-                          key={user._id}
-                          sx={{
-                            minWidth: 90,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            bgcolor: '#fff',
-                            borderRadius: 2,
-                            boxShadow: 1,
-                            p: 1,
-                            flex: '0 0 auto'
-                          }}
-                        >
-                          <Avatar
-                            src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`}
-                            sx={{ width: 48, height: 48, mb: 1 }}
-                          />
-                          <Typography
-                            fontWeight={600}
-                            fontSize={13}
-                            sx={{
-                              textAlign: 'center',
-                              mb: 1,
-                              maxWidth: 70,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}
-                          >
-                            {user.username}
-                          </Typography>
-                          {!friendRequests[user._id] ? (
-                            <button
-                              style={{
-                                backgroundColor: '#f06292',
-                                border: 'none',
-                                color: 'white',
-                                fontWeight: 500,
-                                borderRadius: '20px',
-                                padding: '4px 10px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem'
-                              }}
-                              onClick={() => handleAddFriend(user._id)}
-                            >
-                              Add Friend
-                            </button>
-                          ) : (
-                            <button
-                              style={{
-                                backgroundColor: '#f06292',
-                                border: 'none',
-                                color: 'white',
-                                fontWeight: 500,
-                                borderRadius: '20px',
-                                padding: '4px 10px',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem'
-                              }}
-                              onClick={() => handleCancelRequest(user._id)}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </Box>
-                      ))}
-                    </Box>
-                  ));
-                })()}
-              </Box>
-            </Box>
-          </>
-        )}
-
-        {search.trim() !== '' && (
-          <Box sx={{ width: '100%' }}>
-            {filteredUsers.length > 0 ? (
-              <List>
-                {filteredUsers.map((user, idx) => (
-                  <ListItem key={user._id} sx={{ px: 1 }} secondaryAction={
-                    <Box>
-                      {!friendRequests[user._id] ? (
-                        <button
-                          style={{
-                            backgroundColor: '#f06292',
-                            border: 'none',
-                            color: 'white',
-                            fontWeight: 500,
-                            borderRadius: '20px',
-                            padding: '6px 14px',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem'
-                          }}
-                          onClick={() => handleAddFriend(user._id)}
-                        >
-                          Add Friend
-                        </button>
-                      ) : (
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <button
-                            style={{
-                              backgroundColor: 'transparent',
-                              border: '1px solid #f06292',
-                              color: '#f06292',
-                              fontWeight: 500,
-                              borderRadius: '20px',
-                              padding: '6px 14px',
-                              cursor: 'default',
-                              fontSize: '0.85rem'
-                            }}
-                            disabled
-                          >
-                            Requested
-                          </button>
+              {filteredUsers.length > 0 ? (
+                <List>
+                  {filteredUsers.map((user, idx) => (
+                    <ListItem key={user._id} sx={{ px: 1 }} secondaryAction={
+                      <Box>
+                        {!friendRequests[user._id] ? (
                           <button
                             style={{
                               backgroundColor: '#f06292',
@@ -370,28 +203,210 @@ const SearchPage = () => {
                               cursor: 'pointer',
                               fontSize: '0.85rem'
                             }}
+                            onClick={() => handleAddFriend(user._id)}
+                          >
+                            Add Friend
+                          </button>
+                        ) : (
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <button
+                              style={{
+                                backgroundColor: 'transparent',
+                                border: '1px solid #f06292',
+                                color: '#f06292',
+                                fontWeight: 500,
+                                borderRadius: '20px',
+                                padding: '6px 14px',
+                                cursor: 'default',
+                                fontSize: '0.85rem'
+                              }}
+                              disabled
+                            >
+                              Requested
+                            </button>
+                            <button
+                              style={{
+                                backgroundColor: '#f06292',
+                                border: 'none',
+                                color: 'white',
+                                fontWeight: 500,
+                                borderRadius: '20px',
+                                padding: '6px 14px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem'
+                              }}
+                              onClick={() => handleCancelRequest(user._id)}
+                            >
+                              Cancel
+                            </button>
+                          </Box>
+                        )}
+                      </Box>
+                    }>
+                      <ListItemAvatar>
+                        <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
+                      </ListItemAvatar>
+                      <ListItemText primary={<Typography fontWeight={600}>{user.username}</Typography>} />
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  No users found for "{search.trim()}".
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {/* Recent Searches - show below search results */}
+          {recentSearches.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: '#888', fontWeight: 500 }}>
+                Recent Searches
+              </Typography>
+              <List sx={{ maxWidth: 400, width: '100%' }}>
+                {recentSearches.map((user, idx) => (
+                  <ListItem
+                    key={user._id}
+                    secondaryAction={
+                      <IconButton edge="end" onClick={() => handleRemoveRecent(user._id)}>
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemAvatar>
+                      <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={<Typography fontWeight={600}>{user.username}</Typography>}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Box>
+          )}
+
+          {/* SUGGESTIONS always at bottom */}
+          <Box sx={{ mt: 3 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                mb: 1,
+                color: '#888',
+                fontWeight: 500,
+                display: 'block'
+              }}
+            >
+              {isMobile ? 'SUGGESTIONS' : 'SUGGESTIONS'}
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2.5,
+                overflowX: 'auto',
+                pb: 1,
+                maxWidth: '100%',
+                scrollbarWidth: 'none',
+                '&::-webkit-scrollbar': {
+                  display: 'none',
+                },
+                msOverflowStyle: 'none',
+              }}
+            >
+              {/* Split users into rows */}
+              {(() => {
+                const usersPerRow = isMobile ? 6 : 10;
+                const rows = [];
+                for (let i = 0; i < lastLoginUsers.length; i += usersPerRow) {
+                  rows.push(lastLoginUsers.slice(i, i + usersPerRow));
+                }
+                return rows.map((row, rowIdx) => (
+                  <Box
+                    key={rowIdx}
+                    sx={{
+                      display: 'flex',
+                      gap: 3,
+                      justifyContent: isMobile ? 'flex-start' : 'center',
+                      width: '100%',
+                      overflowX: isMobile ? 'auto' : 'visible',
+                      mb: rowIdx !== rows.length - 1 ? 2.5 : 0
+                    }}
+                  >
+                    {row.map((user) => (
+                      <Box
+                        key={user._id}
+                        sx={{
+                          minWidth: 90,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          bgcolor: '#fff',
+                          borderRadius: 2,
+                          boxShadow: 1,
+                          p: 1,
+                          flex: '0 0 auto'
+                        }}
+                      >
+                        <Avatar
+                          src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`}
+                          sx={{ width: 48, height: 48, mb: 1 }}
+                        />
+                        <Typography
+                          fontWeight={600}
+                          fontSize={13}
+                          sx={{
+                            textAlign: 'center',
+                            mb: 1,
+                            maxWidth: 70,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {user.username}
+                        </Typography>
+                        {!friendRequests[user._id] ? (
+                          <button
+                            style={{
+                              backgroundColor: '#f06292',
+                              border: 'none',
+                              color: 'white',
+                              fontWeight: 500,
+                              borderRadius: '20px',
+                              padding: '4px 10px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem'
+                            }}
+                            onClick={() => handleAddFriend(user._id)}
+                          >
+                            Add Friend
+                          </button>
+                        ) : (
+                          <button
+                            style={{
+                              backgroundColor: '#f06292',
+                              border: 'none',
+                              color: 'white',
+                              fontWeight: 500,
+                              borderRadius: '20px',
+                              padding: '4px 10px',
+                              cursor: 'pointer',
+                              fontSize: '0.8rem'
+                            }}
                             onClick={() => handleCancelRequest(user._id)}
                           >
                             Cancel
                           </button>
-                        </Box>
-                      )}
-                    </Box>
-                  }>
-                    <ListItemAvatar>
-                      <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
-                    </ListItemAvatar>
-                    <ListItemText primary={<Typography fontWeight={600}>{user.username}</Typography>} />
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                No users found for "{search.trim()}".
-              </Typography>
-            )}
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                ));
+              })()}
+            </Box>
           </Box>
-        )}
+        </Box>
       </Box>
     </Box>
   );
