@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   gender: { type: String, required: true },
   govidproof: { type: String }, // Added (store file path or URL)
+  profileImage: { type: String ,default: ''}, // base64 string
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
