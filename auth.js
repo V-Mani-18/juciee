@@ -142,6 +142,54 @@ router.get('/search', async (req, res) => {
   }
 });
 
+// ================= Last Registered Users (limit param) =================
+router.get('/last-logins', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    // Sort by _id descending (MongoDB ObjectId contains creation time)
+    const users = await User.find({})
+      .sort({ _id: -1 })
+      .limit(limit)
+      .select('username profilePic _id');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+// Get user by ID
+router.get('/user/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete user by ID
+router.delete('/user/:id', async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ message: 'User deleted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update profile image
+router.put('/user/:id/profile-image', async (req, res) => {
+  try {
+    const { profileImage } = req.body;
+    await User.findByIdAndUpdate(req.params.id, { profileImage });
+    res.json({ message: 'Profile image updated' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 
 
 module.exports = router;
