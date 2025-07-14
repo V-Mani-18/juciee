@@ -10,7 +10,11 @@ import {
   FormControl,
   useMediaQuery,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +22,13 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AnimatedTitle from './AnimatedTitle';
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import CancelRoundedIcon from "@mui/icons-material/CancelRounded";
+import Slide from "@mui/material/Slide";
+
+const Transition = React.forwardRef(function Transition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 export default function SignUpPage() {
   const [form, setForm] = useState({
@@ -37,6 +48,14 @@ export default function SignUpPage() {
   const [otp, setOtp] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileImage, setProfileImage] = useState('');
+  const [profilePreview, setProfilePreview] = useState('');
+  const [popup, setPopup] = useState({
+    open: false,
+    success: false,
+    message: "",
+  });
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -53,7 +72,7 @@ export default function SignUpPage() {
 
   const handleSendOtp = async () => {
     if (!form.phone) {
-      alert('Please enter a phone number');
+      showPopup(false, 'Please enter a phone number');
       return;
     }
 
@@ -69,8 +88,9 @@ export default function SignUpPage() {
 
       if (response.ok) {
         setShowOtpModal(true);
+        showPopup(true, 'OTP sent successfully!');
       } else {
-        alert(data.message || 'Failed to send OTP');
+        showPopup(false, data.message || 'Failed to send OTP');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -82,7 +102,7 @@ export default function SignUpPage() {
 
   const handleVerifyOtp = async () => {
     if (!otp) {
-      alert('Please enter the OTP');
+      showPopup(false, 'Please enter the OTP');
       return;
     }
 
@@ -98,9 +118,9 @@ export default function SignUpPage() {
       if (response.ok) {
         setIsPhoneVerified(true);
         setShowOtpModal(false);
-        alert('Phone number verified successfully!');
+        showPopup(true, 'Phone number verified successfully!');
       } else {
-        alert(data.message || 'Invalid OTP');
+        showPopup(false, data.message || 'Invalid OTP');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -108,16 +128,28 @@ export default function SignUpPage() {
     }
   };
 
+  // Convert image to base64
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImage(reader.result); // base64 string
+      setProfilePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!isPhoneVerified) {
-      alert('Please verify your phone number first');
+      showPopup(false, 'Please verify your phone number first');
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      alert('Passwords do not match');
+      showPopup(false, 'Passwords do not match');
       return;
     }
 
@@ -130,6 +162,8 @@ export default function SignUpPage() {
           formData.append(key, form[key]);
         }
       });
+      // Add base64 image string
+      formData.append('profileImage', profileImage);
 
       const response = await fetch('http://localhost:5000/api/signup', {
         method: 'POST',
@@ -139,10 +173,10 @@ export default function SignUpPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(data.message);
+        showPopup(true, data.message || 'Registered successfully!');
         navigate('/');
       } else {
-        alert(data.message);
+        showPopup(false, data.message || 'Registration failed');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -153,6 +187,11 @@ export default function SignUpPage() {
   const handleClickShowPassword = () => setShowPassword((show) => !show);
   const handleClickShowConfirmPassword = () => setShowConfirmPassword((show) => !show);
 
+  const showPopup = (success, message) => {
+    setPopup({ open: true, success, message });
+    setTimeout(() => setPopup((p) => ({ ...p, open: false })), 2000);
+  };
+
   return (
     <Box
       sx={{
@@ -161,7 +200,7 @@ export default function SignUpPage() {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        fontFamily: "'Poppins', sans-serif",
+        fontFamily: `'Poppins', sans-serif`,
       }}
     >
       <Box
@@ -179,6 +218,27 @@ export default function SignUpPage() {
         <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
           Sign Up
         </Typography>
+
+        {/* Add Profile Button */}
+        <Button
+          variant="outlined"
+          sx={{
+            mb: 2,
+            borderColor: '#ec407a',
+            color: '#ec407a',
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 600,
+            '&:hover': {
+              backgroundColor: '#fce4ec',
+              borderColor: '#d81b60',
+              color: '#d81b60'
+            }
+          }}
+          onClick={() => setProfileOpen(true)}
+        >
+          Add Profile
+        </Button>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Name + Username */}
@@ -409,6 +469,94 @@ export default function SignUpPage() {
             </Box>
           </Box>
         )}
+
+        {/* Profile Modal */}
+        <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle sx={{ color: '#ec407a', fontWeight: 700 }}>Add Profile</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <img
+                src={profilePreview || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'}
+                alt="Profile"
+                style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '4px solid #f8bbd0',
+                  marginBottom: 8,
+                }}
+              />
+              <Button
+                component="label"
+                variant="outlined"
+                sx={{
+                  backgroundColor: '#f8eaea',
+                  borderColor: '#f8eaea',
+                  color: '#666',
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  '&:hover': {
+                    backgroundColor: '#f0e0e0',
+                    borderColor: '#f0e0e0',
+                  },
+                }}
+              >
+                Upload Profile Photo
+                <input type="file" accept="image/*" hidden onChange={handleProfileImageChange} />
+              </Button>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setProfileOpen(false)} sx={{ color: '#ec407a', fontWeight: 600 }}>
+              Done
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Success/Error Popup */}
+        <Dialog
+          open={popup.open}
+          TransitionComponent={Transition}
+          keepMounted
+          PaperProps={{
+            sx: {
+              position: "fixed",
+              bottom: 32,
+              left: "44%",
+              transform: "translateX(-50%)",
+              bgcolor: "#fff",
+              borderRadius: 3,
+              minWidth: 320,
+              boxShadow: 6,
+              display: "flex",
+              alignItems: "center",
+              px: 3,
+              py: 2,
+            },
+          }}
+          hideBackdrop
+        >
+          <DialogContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 0 }}>
+            {popup.success ? (
+              <CheckCircleRoundedIcon sx={{ color: "#1ecb4f", fontSize: 40 }} />
+            ) : (
+              <CancelRoundedIcon sx={{ color: "#ef1c1c", fontSize: 40 }} />
+            )}
+            <Typography
+              variant="subtitle1"
+              sx={{
+                color: popup.success ? "#1ecb4f" : "#ef1c1c",
+                fontWeight: "bold",
+                fontFamily: "Pacifico, cursive",
+                letterSpacing: 1,
+              }}
+            >
+              {popup.message}
+            </Typography>
+          </DialogContent>
+        </Dialog>
       </Box>
     </Box>
   );
