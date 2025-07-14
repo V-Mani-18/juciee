@@ -116,7 +116,7 @@ const SearchPage = () => {
         flexDirection: 'column',
         alignItems: 'center',
         overflow: 'hidden', // Prevent outer scroll
-        p: 1,
+        p: 0,
         m: 0,
       }}
     >
@@ -132,7 +132,7 @@ const SearchPage = () => {
           minHeight: isMobile ? 'auto' : 500,
           transition: 'all 0.2s',
           overflow: 'hidden',
-          mt: 0,
+          mt: 1,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -142,7 +142,7 @@ const SearchPage = () => {
         <Box
           sx={{
             flex: 1,
-            overflowY: 'hidden',
+            overflowY: 'auto',
             overflowX: 'hidden',
             width: '100%',
           }}
