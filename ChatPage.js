@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   AppBar, Toolbar, Typography, IconButton, Avatar, List,
   ListItem, ListItemAvatar, ListItemText, Box, Paper, useMediaQuery,
@@ -22,14 +22,8 @@ import Picker from '@emoji-mart/react';
 import data from '@emoji-mart/data';
 import InsertEmoticonIcon from '@mui/icons-material/InsertEmoticon';
 import UserProfile from './UserProfile';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-
-
-
-
-
-
-
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 const chatMembers = [
   { name: 'Sophia', image: 'https://i.pravatar.cc/150?img=11', online: true },
   { name: 'Ethan', image: 'https://i.pravatar.cc/150?img=12', online: false },
@@ -59,12 +53,21 @@ const ChatPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+      fetch(`http://localhost:5000/api/user/${userId}`)
+        .then(res => res.json())
+        .then(data => setUser(data));
+    }
+  }, []);
 
   const showChatList = isMobile ? !selectedUser : true;
   const showChatPane = isMobile ? !!selectedUser : true;
   const [userProfile, setUserProfile] = useState(null);
-  const [hasFriendRequest, setHasFriendRequest] = useState(false); // or false based on your logic
-
 
   const filteredMembers = chatMembers.filter((member) =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -144,8 +147,6 @@ const ChatPage = () => {
       setAudioBlob(null);
     }
   };
-
-  
   return (
     <Box sx={{
       height: '100vh',
@@ -156,31 +157,41 @@ const ChatPage = () => {
       <AppBar position="static" sx={{ bgcolor: '#fff', boxShadow: 'none', borderBottom: '1px solid #f1dcdc' }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <AnimatedTitle />
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-  <IconButton onClick={() => alert("Check your friend requests!")}>
-    <NotificationsIcon sx={{ color: hasFriendRequest ? '#ff69b4' : '#000' }} />
-  </IconButton>
-
-  <IconButton
-    onClick={() => {
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (!user || !user._id) return alert("User not logged in");
-
-      setBottomNav(4);
-      fetch(`/api/user/${user._id}`)
-        .then(res => res.json())
-        .then(data => setUserProfile(data))
-        .catch(err => console.error("Error fetching user:", err));
-    }}
-  >
-    <AccountCircleIcon sx={{ color: '#000' }} />
-  </IconButton>
-</Box>
-
-
-
-
-
+          <IconButton
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+          >
+            {user && user.profileImage ? (
+              <Avatar
+                src={user.profileImage.startsWith('data:') ? user.profileImage : `data:image/jpeg;base64,${user.profileImage}`}
+                sx={{ width: 36, height: 36 }}
+              />
+            ) : (
+              <AccountCircleIcon sx={{ color: '#000', width: 36, height: 36 }} />
+            )}
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={() => setAnchorEl(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setAnchorEl(null);
+                setBottomNav(4); // Show profile
+              }}
+            >
+              Account
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setAnchorEl(null);
+                localStorage.removeItem("user");
+                window.location.href = "/"; // Or use navigate("/signin") if using react-router
+              }}
+            >
+              Sign Out
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
 
@@ -211,11 +222,11 @@ const ChatPage = () => {
               <PhoneIcon />
             </IconButton>
             <IconButton
-  color={bottomNav === 2 ? 'primary' : 'default'}
-  onClick={() => setBottomNav(2)}
->
-  <SearchIcon />
-</IconButton>
+              color={bottomNav === 2 ? 'primary' : 'default'}
+              onClick={() => setBottomNav(2)}
+            >
+              <SearchIcon />
+            </IconButton>
 
             <IconButton
               color={bottomNav === 3 ? 'primary' : 'default'}
@@ -228,18 +239,18 @@ const ChatPage = () => {
         {/* Show Profile if Profile tab is selected */}
         {bottomNav === 2 ? (
           <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', mt: 2 }}>
-    <SearchPage />
-  </Box>
-) : bottomNav === 3 ? (
-  <Settings onBack={() => setBottomNav(0)} />
-) : bottomNav === 4 ? (
-  <UserProfile />
-) : bottomNav === 1 ? (
-  // CALL LOGS TAB
-  <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 3.5 }}>
-    {React.createElement(call)}
-  </Box>
-) : (
+            <SearchPage />
+          </Box>
+        ) : bottomNav === 3 ? (
+          <Settings onBack={() => setBottomNav(0)} />
+        ) : bottomNav === 4 ? (
+          <UserProfile />
+        ) : bottomNav === 1 ? (
+          // CALL LOGS TAB
+          <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 3.5 }}>
+            {React.createElement(call)}
+          </Box>
+        ) : (
           <>
             {showChatList && (
               <Box sx={{
@@ -292,17 +303,17 @@ const ChatPage = () => {
                         secondary={<Typography sx={{ fontSize: '0.85rem', color: '#888' }}>Hey, how are you?</Typography>}
                       />
                       <Box sx={{ textAlign: 'right' }}>
-  <Typography sx={{ fontSize: '0.75rem', color: '#aaa' }}>10:30 AM</Typography>
-  <Typography
-    sx={{
-      fontSize: '0.75rem',
-      fontWeight: 500,
-      color: member.online ? 'green' : 'red'
-    }}
-  >
-    {member.online ? 'Online' : 'Offline'}
-  </Typography>
-</Box>
+                        <Typography sx={{ fontSize: '0.75rem', color: '#aaa' }}>10:30 AM</Typography>
+                        <Typography
+                          sx={{
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            color: member.online ? 'green' : 'red'
+                          }}
+                        >
+                          {member.online ? 'Online' : 'Offline'}
+                        </Typography>
+                      </Box>
 
                     </ListItem>
                   ))}
@@ -461,49 +472,49 @@ const ChatPage = () => {
                     </Box>
                   )}
 
-                 <Box sx={{ position: 'relative', flex: 1 }}>
-  <TextField
-    value={message}
-    onChange={(e) => setMessage(e.target.value)}
-    onKeyPress={handleKeyPress}
-    placeholder="Type a message"
-    multiline
-    maxRows={4}
-    variant="outlined"
-    fullWidth
-    InputProps={{
-      startAdornment: (
-        <InputAdornment position="start">
-          <InsertEmoticonIcon
-            sx={{ cursor: 'pointer', color: '#888' }}
-            onClick={() => setShowEmojiPicker((prev) => !prev)}
-          />
-        </InputAdornment>
-      ),
-      sx: {
-        borderRadius: 8,
-        bgcolor: '#fcecec',
-        px: 2,
-        border: 'none',
-      },
-    }}
-  />
+                  <Box sx={{ position: 'relative', flex: 1 }}>
+                    <TextField
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type a message"
+                      multiline
+                      maxRows={4}
+                      variant="outlined"
+                      fullWidth
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <InsertEmoticonIcon
+                              sx={{ cursor: 'pointer', color: '#888' }}
+                              onClick={() => setShowEmojiPicker((prev) => !prev)}
+                            />
+                          </InputAdornment>
+                        ),
+                        sx: {
+                          borderRadius: 8,
+                          bgcolor: '#fcecec',
+                          px: 2,
+                          border: 'none',
+                        },
+                      }}
+                    />
 
-  {/* Emoji Picker dropdown */}
-  {showEmojiPicker && (
-    <Box sx={{ position: 'absolute', bottom: '60px', left: 0, zIndex: 1000 }}>
-      <Picker
-        data={data}
-        onEmojiSelect={(emoji) => {
-          setMessage((prev) => prev + emoji.native);
-          setShowEmojiPicker(false);
-        }}
-        theme="light"
-        maxFrequentRows={2}
-      />
-    </Box>
-  )}
-</Box>
+                    {/* Emoji Picker dropdown */}
+                    {showEmojiPicker && (
+                      <Box sx={{ position: 'absolute', bottom: '60px', left: 0, zIndex: 1000 }}>
+                        <Picker
+                          data={data}
+                          onEmojiSelect={(emoji) => {
+                            setMessage((prev) => prev + emoji.native);
+                            setShowEmojiPicker(false);
+                          }}
+                          theme="light"
+                          maxFrequentRows={2}
+                        />
+                      </Box>
+                    )}
+                  </Box>
 
                   {/* Mic/Send button logic */}
                   {message.trim() ? (
@@ -539,36 +550,32 @@ const ChatPage = () => {
       </Box>
 
       {isMobile && (
-       <BottomNavigation
-  showLabels
-  value={bottomNav}
-  onChange={(event, newValue) => {
-    setBottomNav(newValue);
-    if (newValue !== 2) setSelectedUser(null); // Deselect user when switching tabs except Search (previously Profile)
-  }}
-  sx={{
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    width: '100%',
-    borderTop: '1px solid #eee',
-    bgcolor: '#fff',
-    boxShadow: '0px -2px 8px rgba(0,0,0,0.05)',
-  }}
->
-  <BottomNavigationAction label="Chats" icon={<ChatIcon />} />
-  <BottomNavigationAction label="Call" icon={<PhoneIcon />} />
-  <BottomNavigationAction label="Search" icon={<SearchIcon />} />  {/* ← Updated */}
- <BottomNavigationAction
-  label="Settings"
-  icon={<SettingsIcon />}
-  onClick={() => setBottomNav(3)}
-/>
-
- 
-
-</BottomNavigation>
-
+        <BottomNavigation
+          showLabels
+          value={bottomNav}
+          onChange={(event, newValue) => {
+            setBottomNav(newValue);
+            if (newValue !== 2) setSelectedUser(null); // Deselect user when switching tabs except Search (previously Profile)
+          }}
+          sx={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            borderTop: '1px solid #eee',
+            bgcolor: '#fff',
+            boxShadow: '0px -2px 8px rgba(0,0,0,0.05)',
+          }}
+        >
+          <BottomNavigationAction label="Chats" icon={<ChatIcon />} />
+          <BottomNavigationAction label="Call" icon={<PhoneIcon />} />
+          <BottomNavigationAction label="Search" icon={<SearchIcon />} />  {/* ← Updated */}
+          <BottomNavigationAction
+            label="Settings"
+            icon={<SettingsIcon />}
+            onClick={() => setBottomNav(3)}
+          />
+        </BottomNavigation>
       )}
     </Box>
   );
