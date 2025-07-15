@@ -9,7 +9,8 @@ import {
   Search as SearchIcon, ArrowBack as ArrowBackIcon, Settings as SettingsIcon,
   Phone as PhoneIcon, Chat as ChatIcon, AccountCircle as AccountCircleIcon,
   Mic as MicIcon, Send as SendIcon, Add as AddIcon,
-  Image as ImageIcon, Description as DocumentIcon, Contacts as ContactIcon
+  Image as ImageIcon, Description as DocumentIcon, Contacts as ContactIcon,
+  Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import call from './call'; // Assuming you have a separate call component
 import { useTheme } from '@mui/material/styles';
@@ -55,6 +56,8 @@ const ChatPage = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [user, setUser] = useState(null);
+  // Simulate notification state (replace with your logic)
+  const [hasNotification, setHasNotification] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -63,6 +66,13 @@ const ChatPage = () => {
         .then(res => res.json())
         .then(data => setUser(data));
     }
+  }, []);
+
+  // Example: Simulate notification after 5 seconds (replace with your backend logic)
+  useEffect(() => {
+    // Remove this simulation and use your real notification logic
+    const timer = setTimeout(() => setHasNotification(true), 5000);
+    return () => clearTimeout(timer);
   }, []);
 
   const showChatList = isMobile ? !selectedUser : true;
@@ -164,46 +174,58 @@ const ChatPage = () => {
           bgcolor: '#fff',
           boxShadow: 'none',
           borderBottom: '1px solid #f1dcdc',
-          zIndex: 1201 // Above content
+          zIndex: 1201
         }}
       >
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <AnimatedTitle />
-          <IconButton
-            onClick={(e) => setAnchorEl(e.currentTarget)}
-          >
-            {user && user.profileImage ? (
-              <Avatar
-                src={user.profileImage.startsWith('data:') ? user.profileImage : `data:image/jpeg;base64,${user.profileImage}`}
-                sx={{ width: 36, height: 36 }}
-              />
-            ) : (
-              <AccountCircleIcon sx={{ color: '#000', width: 36, height: 36 }} />
-            )}
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={() => setAnchorEl(null)}
-          >
-            <MenuItem
+          {/* Notification and Profile icons with reduced space */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
               onClick={() => {
-                setAnchorEl(null);
-                setBottomNav(4); // Show profile
+                setHasNotification(false);
               }}
+              sx={{ p: 0.5 }}
             >
-              Account
-            </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setAnchorEl(null);
-                localStorage.removeItem("user");
-                window.location.href = "/"; // Or use navigate("/signin") if using react-router
-              }}
+              <NotificationsIcon sx={{ color: hasNotification ? '#f06292' : '#000', width: 32, height: 32 }} />
+            </IconButton>
+            <IconButton
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{ p: 0.5 }}
             >
-              Sign Out
-            </MenuItem>
-          </Menu>
+              {user && user.profileImage ? (
+                <Avatar
+                  src={user.profileImage.startsWith('data:') ? user.profileImage : `data:image/jpeg;base64,${user.profileImage}`}
+                  sx={{ width: 36, height: 36 }}
+                />
+              ) : (
+                <AccountCircleIcon sx={{ color: '#000', width: 36, height: 36 }} />
+              )}
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={() => setAnchorEl(null)}
+            >
+              <MenuItem
+                onClick={() => {
+                  setAnchorEl(null);
+                  setBottomNav(4); // Show profile
+                }}
+              >
+                Account
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setAnchorEl(null);
+                  localStorage.removeItem("user");
+                  window.location.href = "/"; // Or use navigate("/signin") if using react-router
+                }}
+              >
+                Sign Out
+              </MenuItem>
+            </Menu>
+          </Box>
         </Toolbar>
       </AppBar>
 
