@@ -58,6 +58,9 @@ const ChatPage = () => {
   const [user, setUser] = useState(null);
   // Simulate notification state (replace with your logic)
   const [hasNotification, setHasNotification] = useState(false);
+  const [friendRequestsList, setFriendRequestsList] = useState([]);
+  const [friends, setFriends] = useState([]); // Track accepted friends for chat
+  const [dbFriends, setDbFriends] = useState([]); // Friends from DB
 
   useEffect(() => {
     const userId = localStorage.getItem('userId');
@@ -68,6 +71,16 @@ const ChatPage = () => {
     }
   }, []);
 
+  // Load friends from DB on mount and after accepting a friend
+  useEffect(() => {
+    const currentUserId = localStorage.getItem('userId');
+    if (currentUserId) {
+      fetch(`http://localhost:5000/api/user/${currentUserId}/friends`)
+        .then(res => res.json())
+        .then(data => setDbFriends(data));
+    }
+  }, [friendRequestsList, selectedUser]);
+
   // Example: Simulate notification after 5 seconds (replace with your backend logic)
   useEffect(() => {
     // Remove this simulation and use your real notification logic
@@ -75,22 +88,103 @@ const ChatPage = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Listen for friend requests (simulate backend event)
+  useEffect(() => {
+    // You should replace this with your backend logic (e.g. websocket, polling)
+    // For demo, listen for localStorage event
+    const handleStorage = () => {
+      const currentUserId = localStorage.getItem('userId');
+      // Only show requests where receiverId is current user
+      const reqs = (JSON.parse(localStorage.getItem('pendingFriendRequests') || '[]'))
+        .filter(u => u.receiverId === currentUserId);
+      setFriendRequestsList(reqs);
+      setHasNotification(reqs.length > 0);
+    };
+    window.addEventListener('storage', handleStorage);
+    handleStorage();
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Accept friend request and add to chat list
+  const handleAcceptFriend = async (reqUser) => {
+    // Remove from pendingFriendRequests
+    let reqs = JSON.parse(localStorage.getItem('pendingFriendRequests') || '[]');
+    reqs = reqs.filter(u => !(u.receiverId === reqUser.receiverId && u.senderId === reqUser.senderId));
+    localStorage.setItem('pendingFriendRequests', JSON.stringify(reqs));
+    window.dispatchEvent(new Event('storage'));
+
+    // Save to database (add friend to current user's friend list)
+    try {
+      const currentUserId = localStorage.getItem('userId');
+      await fetch(`http://localhost:5000/api/user/${currentUserId}/add-friend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendId: reqUser.senderId }),
+      });
+      // Also add the current user to the sender's friends list (bi-directional friendship)
+      await fetch(`http://localhost:5000/api/user/${reqUser.senderId}/add-friend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendId: currentUserId }),
+      });
+    } catch (err) {
+      // handle error
+    }
+
+    setHasNotification(reqs.length > 0);
+
+    // Switch to chat page with this user
+    setSelectedUser({
+      name: reqUser.senderUsername,
+      image: reqUser.profilePic || '',
+      online: true
+    });
+    setBottomNav(0);
+  };
+
+  // Fix: define handleNotificationClick
+  const handleNotificationClick = () => {
+    setBottomNav(4);
+    setHasNotification(false);
+  };
+
+  // Fix: define showChatList and showChatPane
   const showChatList = isMobile ? !selectedUser : true;
   const showChatPane = isMobile ? !!selectedUser : true;
-  const [userProfile, setUserProfile] = useState(null);
 
-  const filteredMembers = chatMembers.filter((member) =>
-    member.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // Fix: define filteredMembers
+  // Ensure allChatMembers always has a .name property (senderUsername or username)
+  // Defensive: always use .username for dbFriends, fallback to .name, .senderUsername
+  const allChatMembers = [
+    ...dbFriends.map(f => ({
+      name: f.username,
+      image: f.profilePic || '',
+      online: true
+    })),
+    ...chatMembers
+  ];
+  // Defensive filter to avoid .toLowerCase() on undefined
+  const filteredMembers = allChatMembers.filter((member) =>
+    typeof member.name === 'string' && member.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Fix: define formatDate and formatTime
   const formatDate = (date) => {
     return date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   };
-
   const formatTime = (date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Fix: define handleKeyPress
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Fix: define handleSendMessage
   const handleSendMessage = () => {
     if (!message.trim() || !selectedUser) return;
     const now = new Date();
@@ -109,16 +203,9 @@ const ChatPage = () => {
     setMessage('');
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
+  // Fix: define handleMicClick
   const handleMicClick = async () => {
     if (!isRecording) {
-      // Start recording
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorderRef.current = new window.MediaRecorder(stream);
@@ -136,12 +223,12 @@ const ChatPage = () => {
         setIsRecording(true);
       }
     } else {
-      // Stop recording
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   };
 
+  // Fix: define handleSendAudio
   const handleSendAudio = () => {
     if (audioBlob && selectedUser) {
       const key = selectedUser.name;
@@ -157,6 +244,7 @@ const ChatPage = () => {
       setAudioBlob(null);
     }
   };
+
   return (
     <Box sx={{
       height: '100vh',
@@ -182,9 +270,7 @@ const ChatPage = () => {
           {/* Notification and Profile icons with reduced space */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton
-              onClick={() => {
-                setHasNotification(false);
-              }}
+              onClick={handleNotificationClick}
               sx={{ p: 0.5 }}
             >
               <NotificationsIcon sx={{ color: hasNotification ? '#f06292' : '#000', width: 32, height: 32 }} />
@@ -286,7 +372,10 @@ const ChatPage = () => {
         ) : bottomNav === 3 ? (
           <Settings onBack={() => setBottomNav(0)} />
         ) : bottomNav === 4 ? (
-          <UserProfile />
+          <UserProfile
+            friendRequestsList={friendRequestsList}
+            onAcceptFriend={handleAcceptFriend}
+          />
         ) : bottomNav === 1 ? (
           // CALL LOGS TAB
           <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 3.5 }}>
@@ -342,7 +431,7 @@ const ChatPage = () => {
                       </ListItemAvatar>
                       <ListItemText
                         primary={<Typography sx={{ fontWeight: 600 }}>{member.name}</Typography>}
-                        secondary={<Typography sx={{ fontSize: '0.85rem', color: '#888' }}>Hey, how are you?</Typography>}
+                        secondary={<Typography sx={{ fontSize: '0.85rem', color: '#888' }}>Ready to chat</Typography>}
                       />
                       <Box sx={{ textAlign: 'right' }}>
                         <Typography sx={{ fontSize: '0.75rem', color: '#aaa' }}>10:30 AM</Typography>
@@ -356,7 +445,6 @@ const ChatPage = () => {
                           {member.online ? 'Online' : 'Offline'}
                         </Typography>
                       </Box>
-
                     </ListItem>
                   ))}
                 </List>
@@ -624,3 +712,4 @@ const ChatPage = () => {
 };
 
 export default ChatPage;
+
