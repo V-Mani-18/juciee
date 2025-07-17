@@ -43,13 +43,13 @@ const mockUser = {
   ]
 };
 
-const UserProfile = () => {
-  const [about, setAbout] = useState(mockUser.about);
+const UserProfile = ({ friendRequestsList = [], onAcceptFriend }) => {
+  const [about, setAbout] = useState('');
   const [editing, setEditing] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const theme = useTheme();
   const isMobile = useMediaQuery('(max-width:768px)');
-  const [friends, setFriends] = useState(mockUser.friends);
+  const [friends, setFriends] = useState([]);
   const [user, setUser] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState('');
@@ -62,24 +62,123 @@ const UserProfile = () => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [croppedImage, setCroppedImage] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState([]);
 
-  useEffect(() => {
-    const userId = localStorage.getItem('userId');
-    if (userId) {
-      fetch(`http://localhost:5000/api/user/${userId}`)
-        .then(res => res.json())
-        .then(data => setUser(data));
-    }
-  }, []);
+ useEffect(() => {
+  const userId = localStorage.getItem('userId');
+  if (userId) {
+    fetch(`http://localhost:5000/api/user/${userId}`)
+      .then(res => res.json())
+      .then(data => setUser(data));
+    // Fetch accepted friends from DB
+    fetch(`http://localhost:5000/api/user/${userId}/friends`)
+      .then(res => res.json())
+      .then(data => setFriends(data.map(f => ({
+        name: f.username,
+        avatar: f.profilePic || `https://i.pravatar.cc/150?u=${f.friendId}`,
+        status: 'accepted',
+        online: true,
+        _id: f.friendId
+      }))));
+  }
+}, []);
 
-  const handleFriendAction = (index, action) => {
-    const updatedFriends = [...friends];
+useEffect(() => {
+  async function fetchAvatars() {
+    const filtered = friendRequestsList.filter(req => req.receiverId === (user && user._id));
+    const requestsWithImages = await Promise.all(filtered.map(async req => {
+      // Fetch sender's profile to get profileImage and username
+      const res = await fetch(`http://localhost:5000/api/user/${req.senderId}`);
+      const sender = await res.json();
+      return {
+        name: sender.name, // Use sender's name from DB
+        username: sender.username, // Add sender's username from DB
+        avatar: sender.profileImage || `https://i.pravatar.cc/150?u=${req.senderId}`,
+        status: 'pending',
+        online: false,
+        _id: req.senderId,
+        requestId: req.requestId || req._id
+      };
+    }));
+    setPendingRequests(requestsWithImages);
+  }
+  if (user) fetchAvatars();
+}, [friendRequestsList, user]);
+
+
+  // Show only requests where receiverId matches current user
+  const filteredPendingRequests = friendRequestsList
+  .filter(req => req.receiverId === (user && user._id))
+  .map(req => ({
+    name: req.senderUsername,
+    avatar: req.profileImage || `https://i.pravatar.cc/150?u=${req.senderId}`,
+    status: 'pending',
+    online: false,
+    _id: req.senderId,
+    requestId: req.requestId || req._id // support both local and db
+  }));
+
+  // Accept/reject friend request (DB and UI)
+  const handleRequestAction = async (req, action) => {
     if (action === 'accept') {
-      updatedFriends[index].status = 'accepted';
-    } else {
-      updatedFriends.splice(index, 1);
+      // Accept in backend
+      await fetch(`http://localhost:5000/api/friend-request/${req.requestId}/accept`, {
+        method: 'POST',
+      });
+
+      // Fetch sender's profile for friend info
+      const resSender = await fetch(`http://localhost:5000/api/user/${req._id}`);
+      const sender = await resSender.json();
+
+      // Add to friends list in UI
+      setFriends(prev => [
+        ...prev,
+        {
+          name: sender.name,
+          username: sender.username,
+          avatar: sender.profileImage || `https://i.pravatar.cc/150?u=${sender._id}`,
+          status: 'accepted',
+          online: false,
+          _id: sender._id
+        }
+      ]);
+
+      // Remove from pending requests
+      setPendingRequests(prev => prev.filter(f => f._id !== req._id));
+    } else if (action === 'reject') {
+      await fetch(`http://localhost:5000/api/friend-request/${req.requestId}/reject`, {
+        method: 'POST',
+      });
+      setPendingRequests(prev => prev.filter(f => f._id !== req._id));
     }
-    setFriends(updatedFriends);
+  };
+
+  // Remove friend from friends list and DB
+  const handleRemoveFriend = async (friendId) => {
+    setFriends(prev => prev.filter(f => f._id !== friendId));
+    try {
+      const userId = user && user._id;
+      if (userId && friendId) {
+        await fetch(`http://localhost:5000/api/user/${userId}/remove-friend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ friendId }),
+        });
+      }
+    } catch (err) {
+      // handle error
+    }
+  };
+
+  const handleRemoveProfileImage = async () => {
+    const userId = localStorage.getItem('userId');
+    await fetch(`http://localhost:5000/api/user/${userId}/profile-image`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileImage: '' }),
+    });
+    setUser(prev => ({ ...prev, profileImage: '' }));
+    setEditingImg(false);
   };
 
   const handleDeleteAccount = async () => {
@@ -103,66 +202,11 @@ const UserProfile = () => {
     setDeleteInput('');
   };
 
-  const handleProfileImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-      const base64 = reader.result;
-      // Send to backend
-      const userId = localStorage.getItem('userId');
-      await fetch(`http://localhost:5000/api/user/${userId}/profile-image`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileImage: base64 }),
-      });
-      setUser(prev => ({ ...prev, profileImage: base64 }));
-      setEditingImg(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveProfileImage = async () => {
-    const userId = localStorage.getItem('userId');
-    await fetch(`http://localhost:5000/api/user/${userId}/profile-image`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profileImage: '' }),
-    });
-    setUser(prev => ({ ...prev, profileImage: '' }));
-    setEditingImg(false);
-  };
-
-  const handleCropComplete = async (croppedArea, croppedAreaPixels) => {
-    try {
-      const croppedImage = await getCroppedImg(selectedImage, croppedAreaPixels);
-      setCroppedImage(croppedImage);
-      // Upload cropped image to server
-      const userId = localStorage.getItem('userId');
-      await fetch(`http://localhost:5000/api/user/${userId}/profile-image`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileImage: croppedImage }),
-      });
-      setUser(prev => ({ ...prev, profileImage: croppedImage }));
-    } catch (e) {
-      console.error(e);
+  useEffect(() => {
+    if (user && user.about) {
+      setAbout(user.about);
     }
-    setCropModalOpen(false);
-    setSelectedImage('');
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result);
-        setCropModalOpen(true);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  }, [user]);
 
   if (!user) return <Typography>Loading...</Typography>;
 
@@ -412,10 +456,13 @@ const UserProfile = () => {
           </Tabs>
 
           <List sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
-            {friends.filter(friend =>
-              activeTab === 0 ? friend.status === 'accepted' : friend.status === 'pending'
+            {(activeTab === 0
+              ? friends
+                  .filter(friend => friend.status === 'accepted')
+                  .filter(friend => friend.name && friend.name !== 'Unknown' && friend.username && friend.username !== 'Unknown')
+              : pendingRequests
             ).map((friend, index) => (
-              <ListItem key={index} sx={{ px: 0 }}>
+              <ListItem key={friend._id || index} sx={{ px: 0 }}>
                 <ListItemAvatar>
                   <Badge
                     overlap="circular"
@@ -427,24 +474,58 @@ const UserProfile = () => {
                   </Badge>
                 </ListItemAvatar>
                 <ListItemText
-                  primary={friend.name}
-                  secondary={activeTab === 1 ? "Friend request" : "Friend"}
+                  primary={friend.name || friend.username || 'Unknown'}
+                  secondary={`@${friend.username || ''} - ${activeTab === 1 ? "Friend request" : "Friend"}`}
                   primaryTypographyProps={{ fontWeight: 500 }}
                   secondaryTypographyProps={{ fontSize: 12, color: '#888' }}
                 />
                 {activeTab === 1 && (
                   <Box>
-                    <IconButton onClick={() => handleFriendAction(index, 'accept')} sx={{ color: 'green' }}>
+                    <IconButton
+                      onClick={() => handleRequestAction(friend, 'accept')}
+                      sx={{ color: 'green' }}
+                    >
                       <CheckIcon fontSize="small" />
                     </IconButton>
-                    <IconButton onClick={() => handleFriendAction(index, 'reject')} sx={{ color: 'red' }}>
+                    <IconButton
+                      onClick={() => handleRequestAction(friend, 'reject')}
+                      sx={{ color: 'red' }}
+                    >
                       <CloseIcon fontSize="small" />
                     </IconButton>
                   </Box>
                 )}
+                {activeTab === 0 && (
+                  <Box>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      sx={{ ml: 1, borderRadius: 2, textTransform: 'none' }}
+                      onClick={() => handleRemoveFriend(friend._id)}
+                    >
+                      Remove
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="small"
+                      sx={{ ml: 1, borderRadius: 2, textTransform: 'none' }}
+                      // Implement your block logic here
+                      onClick={() => alert('Block logic not implemented')}
+                    >
+                      Block
+                    </Button>
+                  </Box>
+                )}
               </ListItem>
             ))}
-            {friends.filter(f => activeTab === 0 ? f.status === 'accepted' : f.status === 'pending').length === 0 && (
+            {(activeTab === 0
+              ? friends
+                  .filter(f => f.status === 'accepted')
+                  .filter(f => f.name && f.name !== 'Unknown' && f.username && f.username !== 'Unknown')
+              : pendingRequests
+            ).length === 0 && (
               <Box sx={{ textAlign: 'center', py: 5 }}>
                 <Typography variant="body2" color="#888">
                   {activeTab === 0 ? 'No friends yet' : 'No pending requests'}
@@ -643,3 +724,4 @@ const UserProfile = () => {
 };
 
 export default UserProfile;
+
