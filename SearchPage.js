@@ -35,20 +35,33 @@ const SearchPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Add user to recent searches when "Add Friend" is clicked
+  // Add friend request logic
   const handleAddFriend = (userId) => {
     setFriendRequests((prev) => ({ ...prev, [userId]: true }));
-    // Try to find user object from filteredUsers or lastLoginUsers
     const user =
       filteredUsers.find(u => u._id === userId) ||
       lastLoginUsers.find(u => u._id === userId);
     if (user) {
       setRecentSearches(prev => {
-        // Remove if already present, then add to front
         const filtered = prev.filter(u => u._id !== userId);
         const updated = [user, ...filtered];
-        return updated.slice(0, 5); // Keep only last 5
+        return updated.slice(0, 5);
       });
+      // Store senderUsername and receiverId for correct logic
+      let reqs = JSON.parse(localStorage.getItem('pendingFriendRequests') || '[]');
+      const currentUserId = localStorage.getItem('userId');
+      const currentUsername = localStorage.getItem('username'); // Store username in localStorage at login
+      if (!reqs.some(u => u.receiverId === user._id && u.senderId === currentUserId)) {
+        reqs.push({
+          receiverId: user._id,
+          receiverUsername: user.username,
+          senderId: currentUserId,
+          senderUsername: currentUsername,
+          profilePic: user.profilePic || '',
+        });
+        localStorage.setItem('pendingFriendRequests', JSON.stringify(reqs));
+        window.dispatchEvent(new Event('storage'));
+      }
     }
     // Optionally: send friend request to backend here
   };
@@ -244,7 +257,7 @@ const SearchPage = () => {
                       </Box>
                     }>
                       <ListItemAvatar>
-                        <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
+                        <Avatar src={user.profileImage || `https://i.pravatar.cc/150?u=${user._id}`} />
                       </ListItemAvatar>
                       <ListItemText primary={<Typography fontWeight={600}>{user.username}</Typography>} />
                     </ListItem>
@@ -275,7 +288,7 @@ const SearchPage = () => {
                     }
                   >
                     <ListItemAvatar>
-                      <Avatar src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`} />
+                      <Avatar src={user.profileImage || `https://i.pravatar.cc/150?u=${user._id}`} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={<Typography fontWeight={600}>{user.username}</Typography>}
@@ -349,7 +362,7 @@ const SearchPage = () => {
                         }}
                       >
                         <Avatar
-                          src={user.profilePic || `https://i.pravatar.cc/150?u=${user._id}`}
+                          src={user.profileImage || `https://i.pravatar.cc/150?u=${user._id}`}
                           sx={{ width: 48, height: 48, mb: 1 }}
                         />
                         <Typography
