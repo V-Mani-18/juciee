@@ -31,17 +31,7 @@ import Cropper from 'react-easy-crop';
 import Slider from '@mui/material/Slider';
 import getCroppedImg from './utils/cropImage'; // We'll create this utility below
 
-const mockUser = {
-  name: "John Doe",
-  username: "johnny",
-  email: "john@example.com",
-  phone: "+1234567890",
-  gender: "Male",
-  about: "Hey there! I am using MELT.",
-  friends: [
-    { name: "Olivia", status: "pending", avatar: "https://i.pravatar.cc/150?img=13", online: true },
-  ]
-};
+
 
 const UserProfile = ({ friendRequestsList = [], onAcceptFriend }) => {
   const [about, setAbout] = useState('');
@@ -67,19 +57,18 @@ const UserProfile = ({ friendRequestsList = [], onAcceptFriend }) => {
  useEffect(() => {
   const userId = localStorage.getItem('userId');
   if (userId) {
+    // Fetch user info
     fetch(`http://localhost:5000/api/user/${userId}`)
       .then(res => res.json())
       .then(data => setUser(data));
-    // Fetch accepted friends from DB
+    // Fetch friends
     fetch(`http://localhost:5000/api/user/${userId}/friends`)
       .then(res => res.json())
-      .then(data => setFriends(data.map(f => ({
-        name: f.username,
-        avatar: f.profilePic || `https://i.pravatar.cc/150?u=${f.friendId}`,
-        status: 'accepted',
-        online: true,
-        _id: f.friendId
-      }))));
+      .then(data => setFriends(data));
+    // Fetch pending requests
+    fetch(`http://localhost:5000/api/user/${userId}/friend-requests`)
+      .then(res => res.json())
+      .then(data => setPendingRequests(data));
   }
 }, []);
 
@@ -119,40 +108,30 @@ useEffect(() => {
   }));
 
   // Accept/reject friend request (DB and UI)
-  const handleRequestAction = async (req, action) => {
-    if (action === 'accept') {
-      // Accept in backend
-      await fetch(`http://localhost:5000/api/friend-request/${req.requestId}/accept`, {
-        method: 'POST',
-      });
-
-      // Fetch sender's profile for friend info
-      const resSender = await fetch(`http://localhost:5000/api/user/${req._id}`);
-      const sender = await resSender.json();
-
-      // Add to friends list in UI
-      setFriends(prev => [
-        ...prev,
-        {
-          name: sender.name,
-          username: sender.username,
-          avatar: sender.profileImage || `https://i.pravatar.cc/150?u=${sender._id}`,
-          status: 'accepted',
-          online: false,
-          _id: sender._id
-        }
-      ]);
-
-      // Remove from pending requests
-      setPendingRequests(prev => prev.filter(f => f._id !== req._id));
-    } else if (action === 'reject') {
-      await fetch(`http://localhost:5000/api/friend-request/${req.requestId}/reject`, {
-        method: 'POST',
-      });
-      setPendingRequests(prev => prev.filter(f => f._id !== req._id));
-    }
-  };
-
+ const handleRequestAction = async (req, action) => {
+  const userId = user && user._id;
+  if (!userId) return;
+  if (action === 'accept') {
+    await fetch(`http://localhost:5000/api/friend-request/${req._id}/accept`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverId: userId }),
+    });
+  } else if (action === 'reject') {
+    await fetch(`http://localhost:5000/api/friend-request/${req._id}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverId: userId }),
+    });
+  }
+  // Re-fetch lists
+  fetch(`http://localhost:5000/api/user/${userId}/friends`)
+    .then(res => res.json())
+    .then(data => setFriends(data));
+  fetch(`http://localhost:5000/api/user/${userId}/friend-requests`)
+    .then(res => res.json())
+    .then(data => setPendingRequests(data));
+};
   // Remove friend from friends list and DB
   const handleRemoveFriend = async (friendId) => {
     setFriends(prev => prev.filter(f => f._id !== friendId));
@@ -457,9 +436,8 @@ useEffect(() => {
 
           <List sx={{ flex: 1, overflowY: 'auto', pr: 1 }}>
             {(activeTab === 0
-              ? friends
-                  .filter(friend => friend.status === 'accepted')
-                  .filter(friend => friend.name && friend.name !== 'Unknown' && friend.username && friend.username !== 'Unknown')
+              ?friends
+              .filter(friend => friend.username && friend.username !== 'Unknown')
               : pendingRequests
             ).map((friend, index) => (
               <ListItem key={friend._id || index} sx={{ px: 0 }}>
@@ -724,4 +702,3 @@ useEffect(() => {
 };
 
 export default UserProfile;
-
